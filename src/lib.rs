@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 //
-// Written in 2022-2023 by
+// Written in 2022-2024 by
 //     Dr. Maxim Orlovsky <orlovsky@cyphernet.org>
 //
-// Copyright 2022-2023 Cyphernet DAO, Switzerland
+// Copyright 2022-2024 Cyphernet Labs, IDCS, Switzerland
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,28 +27,35 @@ extern crate amplify;
 extern crate log_crate as log;
 
 pub mod frame;
-#[cfg(feature = "reactor")]
-pub mod tunnel;
 
 mod connection;
 mod listener;
 pub mod session;
 mod split;
 
-#[cfg(feature = "io-reactor")]
+#[cfg(feature = "reactor")]
 pub mod resource;
+#[cfg(feature = "reactor")]
+pub mod client;
+#[cfg(feature = "reactor")]
+pub mod server;
+#[cfg(feature = "reactor")]
+pub mod node;
 
 pub const READ_BUFFER_SIZE: usize = u16::MAX as usize;
 
 pub use connection::{Address, AsConnection, NetConnection, NetStream};
 pub use frame::{Frame, Marshaller};
 pub use listener::NetListener;
-#[cfg(feature = "io-reactor")]
-pub use resource::{ListenerEvent, NetAccept, NetTransport, SessionEvent};
-pub use session::{NetProtocol, NetSession, NetStateMachine};
+#[cfg(feature = "reactor")]
+pub use resource::{ImpossibleResource, ListenerEvent, NetAccept, NetTransport, SessionEvent};
+#[cfg(feature = "reactor")]
+pub use server::tunnel;
+pub use session::{Artifact, NetProtocol, NetSession, NetStateMachine, NodeId};
 pub use split::{NetReader, NetWriter, SplitIo, SplitIoError, TcpReader, TcpWriter};
 
-#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
+#[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug, Display)]
+#[display("lowercase")]
 pub enum Direction {
     Inbound,
     Outbound,

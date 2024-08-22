@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 //
-// Written in 2022-2023 by
+// Written in 2022-2024 by
 //     Dr. Maxim Orlovsky <orlovsky@cyphernet.org>
 //
-// Copyright 2022-2023 Cyphernet DAO, Switzerland
+// Copyright 2022-2024 Cyphernet Labs, IDCS, Switzerland
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 // limitations under the License.
 
 use std::fmt::{Debug, Display};
+use std::hash::Hash;
 #[cfg(feature = "eidolon")]
 use std::net::TcpStream;
 #[cfg(feature = "eidolon")]
@@ -190,12 +191,20 @@ impl<I: EcSign, D: Digest> CypherSession<I, D> {
     }
 }
 
+pub trait NodeId: Copy + Eq + Ord + Hash + Send + Debug + Display {}
+impl<T: Copy + Eq + Ord + Hash + Send + Debug + Display> NodeId for T {}
+
+pub trait Artifact {
+    type NodeId: NodeId;
+    fn remote_id(&self) -> Option<Self::NodeId>;
+}
+
 pub trait NetSession: NetStream + SplitIo {
     /// Inner session type
     type Inner: NetSession;
     /// Underlying connection
     type Connection: NetConnection;
-    type Artifact: Display;
+    type Artifact: Artifact + Display;
 
     fn is_established(&self) -> bool { self.artifact().is_some() }
     fn run_handshake(&mut self) -> io::Result<()>;
@@ -224,7 +233,7 @@ pub trait NetStateMachine: Sized + Send {
     const NAME: &'static str;
 
     type Init: Debug;
-    type Artifact;
+    type Artifact: Artifact;
     type Error: error::Error;
 
     fn init(&mut self, init: Self::Init);
@@ -282,6 +291,12 @@ impl<T> IntoInit<ZeroInit> for T {
 pub struct ProtocolArtifact<M: NetStateMachine, S: NetSession> {
     pub session: S::Artifact,
     pub state: M::Artifact,
+}
+
+impl<M: NetStateMachine, S: NetSession> Artifact for ProtocolArtifact<M, S> {
+    type NodeId = <M::Artifact as Artifact>::NodeId;
+
+    fn remote_id(&self) -> Option<Self::NodeId> { self.state.remote_id() }
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -502,6 +517,12 @@ mod imp_std {
 
     use super::*;
 
+    impl Artifact for SocketAddr {
+        type NodeId = Self;
+
+        fn remote_id(&self) -> Option<Self::NodeId> { Some(*self) }
+    }
+
     impl NetSession for TcpStream {
         type Inner = Self;
         type Connection = Self;
@@ -550,7 +571,7 @@ mod imp_eidolon {
 
     use cyphernet::auth::eidolon;
     use cyphernet::display::{Encoding, MultiDisplay};
-    use cyphernet::{Cert, CertFormat, Digest, EcSign, Ecdh};
+    use cyphernet::{Cert, CertFormat, Digest, EcPk, EcSig, EcSign, Ecdh};
 
     use super::*;
 
@@ -584,6 +605,12 @@ mod imp_eidolon {
                 None => f.write_str("<unidentified>"),
             }
         }
+    }
+
+    impl<S: EcSig> Artifact for Cert<S> {
+        type NodeId = <S::Pk as EcPk>::Compressed;
+
+        fn remote_id(&self) -> Option<Self::NodeId> { Some(self.pk.to_pk_compressed()) }
     }
 
     impl<S: EcSign> NetStateMachine for EidolonRuntime<S> {
@@ -627,6 +654,14 @@ mod impl_noise {
         pub remote_static_key: Option<E::Pk>,
     }
 
+    impl<E: Ecdh, D: Digest> Artifact for NoiseArtifact<E, D> {
+        type NodeId = <E::Pk as EcPk>::Compressed;
+
+        fn remote_id(&self) -> Option<Self::NodeId> {
+            self.remote_static_key.as_ref().map(EcPk::to_pk_compressed)
+        }
+    }
+
     impl<E: Ecdh, D: Digest> NoiseArtifact<E, D> {
         pub fn with(handshake_hash: D::Output, remote_static_key: Option<E::Pk>) -> Self {
             NoiseArtifact {
@@ -667,6 +702,8 @@ mod impl_noise {
 }
 
 mod impl_socks5 {
+    use std::convert::Infallible;
+
     use cyphernet::addr::Host;
     #[cfg(not(feature = "eidolon"))]
     use cyphernet::addr::{HostName, NetAddr};
@@ -674,6 +711,14 @@ mod impl_socks5 {
     use cyphernet::proxy::socks5::Socks5;
 
     use super::*;
+
+    impl Artifact for NetAddr<HostName> {
+        type NodeId = Infallible;
+
+        fn remote_id(&self) -> Option<Self::NodeId> {
+            panic!("NetAddr must not be used as a NodeId")
+        }
+    }
 
     impl NetStateMachine for Socks5 {
         const NAME: &'static str = "socks5";

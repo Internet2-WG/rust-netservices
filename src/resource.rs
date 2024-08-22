@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 //
-// Written in 2022-2023 by
+// Written in 2022-2024 by
 //     Dr. Maxim Orlovsky <orlovsky@cyphernet.org>
 //
-// Copyright 2022-2023 Cyphernet DAO, Switzerland
+// Copyright 2022-2024 Cyphernet Labs, IDCS, Switzerland
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -52,6 +52,34 @@ const HEAP_BUFFER_SIZE: usize = u16::MAX as usize;
 const READ_TIMEOUT: Duration = Duration::from_secs(6);
 /// Maximum time to wait when writing to a socket.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(3);
+
+pub enum ImpossibleResource {}
+
+impl AsRawFd for ImpossibleResource {
+    fn as_raw_fd(&self) -> RawFd { unreachable!("non-instantiable enum") }
+}
+
+impl Write for ImpossibleResource {
+    fn write(&mut self, _: &[u8]) -> io::Result<usize> { unreachable!("non-instantiable enum") }
+
+    fn flush(&mut self) -> io::Result<()> { unreachable!("non-instantiable enum") }
+}
+
+impl WriteAtomic for ImpossibleResource {
+    fn is_ready_to_write(&self) -> bool { unreachable!("non-instantiable enum") }
+
+    fn empty_write_buf(&mut self) -> io::Result<bool> { unreachable!("non-instantiable enum") }
+
+    fn write_or_buf(&mut self, _: &[u8]) -> io::Result<()> { unreachable!("non-instantiable enum") }
+}
+
+impl Resource for ImpossibleResource {
+    type Event = ();
+
+    fn interests(&self) -> IoType { unreachable!("non-instantiable enum") }
+
+    fn handle_io(&mut self, _: Io) -> Option<Self::Event> { unreachable!("non-instantiable enum") }
+}
 
 /// An event happening for a [`NetAccept`] network listener and delivered to a
 /// [`reactor::Handler`].

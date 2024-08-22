@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 //
-// Written in 2022-2023 by
+// Written in 2022-2024 by
 //     Dr. Maxim Orlovsky <orlovsky@cyphernet.org>
 //
-// Copyright 2022-2023 Cyphernet DAO, Switzerland
+// Copyright 2022-2024 Cyphernet Labs, IDCS, Switzerland
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ use std::collections::VecDeque;
 use std::io::{self, Read, Write};
 
 pub trait Frame: Send + Sized {
-    type Error: std::error::Error + Send;
+    type Error: std::error::Error + Sync + Send + 'static;
 
     /// Reads frame from the stream.
     ///
@@ -68,7 +68,8 @@ impl Marshaller {
         Ok(frame)
     }
 
-    pub fn queue_len(&self) -> usize { self.write_queue.len() }
+    pub fn read_queue_len(&self) -> usize { self.read_queue.len() }
+    pub fn write_queue_len(&self) -> usize { self.write_queue.len() }
 
     /// # Errors
     ///
