@@ -26,7 +26,7 @@ use std::collections::{HashMap, VecDeque};
 use std::io::Write;
 use std::os::fd::{AsRawFd, RawFd};
 use std::sync::Arc;
-use std::{io, net};
+use std::{io, net, thread};
 
 use cyphernet::addr::Addr;
 use reactor::poller::popol;
@@ -663,17 +663,20 @@ impl Node {
         L: NetListener<Stream = S::Connection> + 'static,
         C: NodeController<<S::Connection as NetConnection>::Addr, S, L> + 'static,
     >(
-        note_id: <S::Artifact as Artifact>::NodeId,
+        node_id: <S::Artifact as Artifact>::NodeId,
         delegate: C,
         listen: impl IntoIterator<Item = NetAccept<S, L>>,
     ) -> io::Result<Self> {
-        let mut service = NodeService::<S, L, C>::new(note_id, delegate);
+        let mut service = NodeService::<S, L, C>::new(node_id, delegate);
         for socket in listen {
             service.listen(socket);
         }
         let reactor = Reactor::named(service, popol::Poller::new(), s!("node-service"))?;
         Ok(Self { reactor })
     }
+
+    /// Joins the reactor thread.
+    pub fn join(self) -> thread::Result<()> { self.reactor.join() }
 
     /// Terminates the node, closing all connections, unbinding listeners and stopping the reactor
     /// thread.
