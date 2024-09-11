@@ -367,7 +367,7 @@ impl<
                 // Handle conflicting connections.
                 // This is typical when nodes have mutually configured their nodes to connect to
                 // each other on startup. We handle this by deterministically choosing one node
-                // whos outbound connection is the one that is kept. The other connections are
+                // who's outbound connection is the one that is kept. The other connections are
                 // dropped.
                 {
                     // Whether we have precedence in case of conflicting connections.

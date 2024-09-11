@@ -44,6 +44,7 @@ pub mod node;
 
 pub const READ_BUFFER_SIZE: usize = u16::MAX as usize;
 
+pub use ::reactor::{Action, Timestamp, ResourceId};
 pub use connection::{Address, AsConnection, NetConnection, NetStream};
 pub use frame::{Frame, Marshaller};
 pub use listener::NetListener;
